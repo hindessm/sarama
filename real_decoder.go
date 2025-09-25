@@ -23,6 +23,10 @@ type realDecoder struct {
 	registry metrics.Registry
 }
 
+type realFlexibleDecoder struct {
+	*realDecoder
+}
+
 // primitives
 
 func (rd *realDecoder) getInt8() (int8, error) {
@@ -123,7 +127,7 @@ func (rd *realDecoder) getArrayLength() (int, error) {
 	return tmp, nil
 }
 
-func (rd *realDecoder) getCompactArrayLength() (int, error) {
+func (rd *realFlexibleDecoder) getArrayLength() (int, error) {
 	n, err := rd.getUVarint()
 	if err != nil {
 		return 0, err
@@ -148,6 +152,10 @@ func (rd *realDecoder) getBool() (bool, error) {
 }
 
 func (rd *realDecoder) getEmptyTaggedFieldArray() (int, error) {
+	return 0, nil
+}
+
+func (rd *realFlexibleDecoder) getEmptyTaggedFieldArray() (int, error) {
 	tagCount, err := rd.getUVarint()
 	if err != nil {
 		return 0, err
@@ -199,7 +207,7 @@ func (rd *realDecoder) getVarintBytes() ([]byte, error) {
 	return rd.getRawBytes(int(tmp))
 }
 
-func (rd *realDecoder) getCompactBytes() ([]byte, error) {
+func (rd *realFlexibleDecoder) getBytes() ([]byte, error) {
 	n, err := rd.getUVarint()
 	if err != nil {
 		return nil, err
@@ -250,7 +258,7 @@ func (rd *realDecoder) getNullableString() (*string, error) {
 	return &tmpStr, err
 }
 
-func (rd *realDecoder) getCompactString() (string, error) {
+func (rd *realFlexibleDecoder) getString() (string, error) {
 	n, err := rd.getUVarint()
 	if err != nil {
 		return "", err
@@ -265,7 +273,7 @@ func (rd *realDecoder) getCompactString() (string, error) {
 	return tmpStr, nil
 }
 
-func (rd *realDecoder) getCompactNullableString() (*string, error) {
+func (rd *realFlexibleDecoder) getNullableString() (*string, error) {
 	n, err := rd.getUVarint()
 	if err != nil {
 		return nil, err
@@ -282,7 +290,7 @@ func (rd *realDecoder) getCompactNullableString() (*string, error) {
 	return &tmpStr, err
 }
 
-func (rd *realDecoder) getCompactInt32Array() ([]int32, error) {
+func (rd *realFlexibleDecoder) getInt32Array() ([]int32, error) {
 	n, err := rd.getUVarint()
 	if err != nil {
 		return nil, err
@@ -348,6 +356,27 @@ func (rd *realDecoder) getInt64Array() ([]int64, error) {
 }
 
 func (rd *realDecoder) getStringArray() ([]string, error) {
+	n, err := rd.getArrayLength()
+	if err != nil {
+		return nil, err
+	}
+	if n <= 0 {
+		return nil, nil
+	}
+
+	ret := make([]string, n)
+	for i := range ret {
+		str, err := rd.getString()
+		if err != nil {
+			return nil, err
+		}
+
+		ret[i] = str
+	}
+	return ret, nil
+}
+
+func (rd *realFlexibleDecoder) getStringArray() ([]string, error) {
 	n, err := rd.getArrayLength()
 	if err != nil {
 		return nil, err

@@ -83,6 +83,13 @@ func (r *request) decode(pd packetDecoder) (err error) {
 		}
 	}
 
+	if flexibleDecoder, ok := r.body.(flexibleVersion); ok && flexibleDecoder.isFlexibleVersion(version) {
+		if decoder, ok := pd.(*realDecoder); ok {
+			pd = &realFlexibleDecoder{decoder}
+		} else {
+			return PacketDecodingError{"failed to instantiate flexible decoder"}
+		}
+	}
 	return r.body.decode(pd, version)
 }
 

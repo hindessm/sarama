@@ -57,23 +57,18 @@ func (r *ElectLeadersRequest) decode(pd packetDecoder, version int16) (err error
 		r.Type = ElectionType(t)
 	}
 
-	topicCount, err := pd.getCompactArrayLength()
+	topicCount, err := pd.getArrayLength()
 	if err != nil {
 		return err
 	}
 	if topicCount > 0 {
 		r.TopicPartitions = make(map[string][]int32)
 		for i := 0; i < topicCount; i++ {
-			var topic string
-			if r.Version < 2 {
-				topic, err = pd.getString()
-			} else {
-				topic, err = pd.getCompactString()
-			}
+			topic, err := pd.getString()
 			if err != nil {
 				return err
 			}
-			partitionCount, err := pd.getCompactArrayLength()
+			partitionCount, err := pd.getArrayLength()
 			if err != nil {
 				return err
 			}
@@ -86,10 +81,8 @@ func (r *ElectLeadersRequest) decode(pd packetDecoder, version int16) (err error
 				partitions[j] = partition
 			}
 			r.TopicPartitions[topic] = partitions
-			if r.Version >= 2 {
-				if _, err := pd.getEmptyTaggedFieldArray(); err != nil {
-					return err
-				}
+			if _, err := pd.getEmptyTaggedFieldArray(); err != nil {
+				return err
 			}
 		}
 	}
@@ -99,13 +92,8 @@ func (r *ElectLeadersRequest) decode(pd packetDecoder, version int16) (err error
 		return err
 	}
 
-	if r.Version >= 2 {
-		if _, err := pd.getEmptyTaggedFieldArray(); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	_, err = pd.getEmptyTaggedFieldArray()
+	return err
 }
 
 func (r *ElectLeadersRequest) key() int16 {
@@ -122,6 +110,10 @@ func (r *ElectLeadersRequest) headerVersion() int16 {
 
 func (r *ElectLeadersRequest) isValidVersion() bool {
 	return r.Version >= 0 && r.Version <= 2
+}
+
+func (r *ElectLeadersRequest) isFlexibleVersion(version int16) bool {
+	return version >= 2
 }
 
 func (r *ElectLeadersRequest) requiredVersion() KafkaVersion {

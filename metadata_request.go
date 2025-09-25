@@ -111,63 +111,26 @@ func (r *MetadataRequest) encode(pe packetEncoder) (err error) {
 
 func (r *MetadataRequest) decode(pd packetDecoder, version int16) (err error) {
 	r.Version = version
-	if r.Version < 9 {
-		size, err := pd.getInt32()
-		if err != nil {
-			return err
-		}
-		if size > 0 {
-			r.Topics = make([]string, size)
-			for i := range r.Topics {
-				topic, err := pd.getString()
-				if err != nil {
-					return err
-				}
-				r.Topics[i] = topic
-			}
-		}
-	} else if r.Version == 9 {
-		size, err := pd.getCompactArrayLength()
-		if err != nil {
-			return err
-		}
-		if size > 0 {
-			r.Topics = make([]string, size)
-		}
-		for i := range r.Topics {
-			topic, err := pd.getCompactString()
-			if err != nil {
-				return err
-			}
-			r.Topics[i] = topic
-			if _, err := pd.getEmptyTaggedFieldArray(); err != nil {
-				return err
-			}
-		}
-	} else { // version 10+
-		size, err := pd.getCompactArrayLength()
-		if err != nil {
-			return err
-		}
-
-		if size > 0 {
-			r.Topics = make([]string, size)
-		}
-		for i := range r.Topics {
+	size, err := pd.getArrayLength()
+	if err != nil {
+		return err
+	}
+	if size > 0 {
+		r.Topics = make([]string, size)
+	}
+	for i := range r.Topics {
+		if version >= 10 {
 			if _, err = pd.getRawBytes(16); err != nil { // skip UUID
 				return err
 			}
-			topic, err := pd.getCompactNullableString()
-			if err != nil {
-				return err
-			}
-			if topic != nil {
-				r.Topics[i] = *topic
-			}
-
-			if _, err := pd.getEmptyTaggedFieldArray(); err != nil {
-				return err
-			}
+		}
+		topic, err := pd.getString()
+		if err != nil {
+			return err
+		}
+		r.Topics[i] = topic
+		if _, err := pd.getEmptyTaggedFieldArray(); err != nil {
+			return err
 		}
 	}
 
@@ -189,12 +152,9 @@ func (r *MetadataRequest) decode(pd packetDecoder, version int16) (err error) {
 		}
 		r.IncludeTopicAuthorizedOperations = includeTopicAuthz
 	}
-	if r.Version > 8 {
-		if _, err := pd.getEmptyTaggedFieldArray(); err != nil {
-			return err
-		}
-	}
-	return nil
+
+	_, err = pd.getEmptyTaggedFieldArray()
+	return err
 }
 
 func (r *MetadataRequest) key() int16 {
@@ -214,6 +174,10 @@ func (r *MetadataRequest) headerVersion() int16 {
 
 func (r *MetadataRequest) isValidVersion() bool {
 	return r.Version >= 0 && r.Version <= 10
+}
+
+func (r *MetadataRequest) isFlexibleVersion(version int16) bool {
+	return version >= 9
 }
 
 func (r *MetadataRequest) requiredVersion() KafkaVersion {
